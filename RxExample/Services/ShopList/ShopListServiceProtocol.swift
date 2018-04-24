@@ -10,5 +10,5 @@ import Foundation
 
 protocol ShopListServiceProtocol: class {
     func downloadData() -> [ListPosition]
-    func addNewElement()
+    func addNewElement() -> ListPosition
 }

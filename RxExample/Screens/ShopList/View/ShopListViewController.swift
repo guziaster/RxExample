@@ -12,11 +12,6 @@ import RxCocoa
 import RxDataSources
 import SnapKit
 
-fileprivate extension Selector {
-    static let addAction = #selector(ShopListViewController.addButtonTap)
-    static let deleteAction = #selector(ShopListViewController.deleteButtonTap)
-}
-
 final class ShopListViewController: UIViewController {
     
     private let disposeBag = DisposeBag()
@@ -24,6 +19,7 @@ final class ShopListViewController: UIViewController {
     private let viewModel: ShopListViewModelProtocol
     private var tableView: UITableView!
     private let dateFormatter = DateFormatter()
+    private var dataSource: RxTableViewSectionedAnimatedDataSource<ListPositionSection>!
     
     init(viewModel: ShopListViewModelProtocol) {
         self.viewModel = viewModel
@@ -40,6 +36,7 @@ final class ShopListViewController: UIViewController {
         configureButtons()
         configureTableView()
         viewModel.fetchData()
+        
         observeFetchedData()
     }
     
@@ -53,33 +50,34 @@ final class ShopListViewController: UIViewController {
         }
         
         tableView.tableFooterView = UIView()
+        
+        dataSource = RxTableViewSectionedAnimatedDataSource<ListPositionSection>(configureCell: { (dataSource, tableView, indexPath, item) -> UITableViewCell in
+            let cell = tableView.dequeueReusableCell(withIdentifier: SubtitleCell.reuseIdentifier, for: indexPath) as! SubtitleCell
+            let elementsList = item.items.map {$0.productName}.joined(separator: ", ")
+            cell.setup(title: String(item.id), subtitle: elementsList)
+            return cell
+        })
     }
     
     private func configureButtons() {
-        let rightBarButton = UIBarButtonItem(title: "Add", style: .done, target: self, action: Selector.addAction)
+        let rightBarButton = UIBarButtonItem(title: "Add", style: .done, target: nil, action: nil)
         navigationItem.rightBarButtonItem = rightBarButton
         
-        let leftBarButton = UIBarButtonItem(title: "Delete", style: .done, target: self, action: Selector.deleteAction)
+        let leftBarButton = UIBarButtonItem(title: "Delete", style: .done, target: nil, action: nil)
         navigationItem.leftBarButtonItem = leftBarButton
+        
+        _ = rightBarButton.rx.tap.bind(to: viewModel.addAction).disposed(by: disposeBag)
+        _ = leftBarButton.rx.tap.bind(to: viewModel.deleteAction).disposed(by: disposeBag)
     }
     
     private func observeFetchedData() {
-        viewModel.listPositions.asObservable().bind(to: tableView.rx.items(
-            cellIdentifier: SubtitleCell.reuseIdentifier,
-            cellType: SubtitleCell.self)) { (index, element, cell) in
-                let title = self.dateFormatter.string(from: element.creationDate)
-                let elementsList = element.items.map {$0.productName}.joined(separator: ", ")
-                cell.setup(title: title, subtitle: elementsList)
-        }.disposed(by: disposeBag)
-    }
-}
-
-extension ShopListViewController {
-    @objc fileprivate func addButtonTap() {
-        viewModel.addAction.onNext(())
+        viewModel.listPositions.asObservable()
+            .map { (items) -> [ListPositionSection] in
+                let listPosition = ListPositionSection(header: "", items: items)
+                return [listPosition]
+            }.bind(to:
+                tableView.rx.items(dataSource: dataSource)
+            ).disposed(by: disposeBag)
     }
     
-    @objc fileprivate func deleteButtonTap() {
-        viewModel.deleteAction.onNext(())
-    }
 }

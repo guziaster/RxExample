@@ -33,7 +33,7 @@ final class ShopListViewModel: ShopListViewModelProtocol {
     
     private func observeInputs() {
         addAction.asObservable().observeOn(MainScheduler.instance).subscribe { (_) in
-            self.fetchData()
+           self.listPositions.value.append(self.service.addNewElement())
         }.disposed(by: disposeBag)
         
         deleteAction.asObservable().subscribe { (_) in
